@@ -5,6 +5,7 @@ from random import random
 from math import sin, cos, pi
 
 from functools import wraps
+from time import time
 
 N = 256 #number of discrete
 n = 8 #number of harmonic
@@ -22,7 +23,17 @@ def spectrum_wrapper(func):
     return inner_wrapper
 
 
-def generate_random_signals(max_a=5):
+def time_wrapper(func):
+    @wraps(func)
+    def inner_wrapper(*args, **kwargs):
+        start = time()
+        result = func(*args, **kwargs)
+        time_delta = start - time()
+        return result, time_delta
+    return inner_wrapper
+
+
+def generate_random_signals(steps=N, max_a=5):
     def generate_random_signal(t):
         sum_res = 0
         wp = w / n
@@ -35,8 +46,24 @@ def generate_random_signals(max_a=5):
 
         return sum_res
 
-    x_array = np.array([generate_random_signal(i) for i in range(N)])
+    x_array = np.array([generate_random_signal(i) for i in range(steps)])
     return x_array
+
+
+@spectrum_wrapper
+def dft(signal):
+    def factor(pk, n):
+        angle = -2 * pi / n * pk
+        return complex(cos(angle), sin(angle))
+
+    length = len(signal)
+    result = np.zeros(length, dtype=complex)
+
+    for p in range(length):
+        for k in range(length):
+            result[p] += factor(p * k, length)*signal[k]
+
+    return result
 
 
 @spectrum_wrapper
@@ -84,5 +111,32 @@ def main():
     plt.show()
 
 
+def extra_task(start=1, finish=11):
+    dft_with_time = time_wrapper(dft)
+    fft_with_time = time_wrapper(fft)
+
+    def timeshift(n):
+        random_signal = generate_random_signals(n)
+        _, dft_time = dft_with_time(random_signal)
+        _, fft_time = fft_with_time(random_signal)
+        return dft_time - fft_time
+
+    m = np.arange(start, finish)
+    n = 2**m
+    time_deletes = np.array([timeshift(i) for i in n])
+
+    fig, axes = plt.subplots(2, figsize=(15, 15))
+
+    axes[0].plot(m, time_deletes)
+    axes[0].set(xlabel='m', ylabel='time (s)', title='Залежність дельти часу від 2**m довжини масиву.')
+
+    axes[1].plot(n, time_deletes)
+    axes[1].set(xlabel='n', ylabel='time (s)', title='Залежність дельти часу від n довжини масиву.')
+
+    plt.savefig("lab_2_2_extra.png")
+    plt.show()
+
+
 if __name__ == '__main__':
     main()
+    extra_task()
